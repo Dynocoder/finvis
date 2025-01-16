@@ -1,8 +1,17 @@
 'use client';
-import React, { use, useEffect, useRef, useState } from 'react';
-
+import React, { use, useEffect, useState } from 'react';
+import { createChart } from 'lightweight-charts';
+import { useNewsDataFetcher } from '@/app/hooks/useNewsDataFetcher';
 
 export default function StockQuotePage({ params }: { params: Promise<{ stock_name: string }> }) {
+  const { stock_name } = use(params);
+  const { newsData } = useNewsDataFetcher(stock_name);
+  const [lineSeries, setLineSeries] = useState<any>();
+
+  const chartOptions: any = { layout: { textColor: 'black', background: { type: 'solid', color: 'white' } } };
+
+  const data: Array<any> = [{ value: 0, time: 1642425322 }, { value: 8, time: 1642511722 }, { value: 10, time: 1642598122 }, { value: 20, time: 1642684522 }, { value: 3, time: 1642770922 }, { value: 43, time: 1642857322 }, { value: 41, time: 1642943722 }, { value: 43, time: 1643030122 }, { value: 56, time: 1643116522 }, { value: 46, time: 1643202922 }];
+
 
   const [isMarketOpen, setIsMarketOpen] = useState(null)
 
@@ -12,35 +21,19 @@ export default function StockQuotePage({ params }: { params: Promise<{ stock_nam
       const data = await res.json()
       setIsMarketOpen(data.isOpen)
     }
+
+    const element = document.getElementById('container') ?? '';
+    const chart = createChart(element, chartOptions);
+    const lineSeries: any = chart.addAreaSeries();
+    setLineSeries(lineSeries)
+
+    lineSeries.setData(data);
+    chart.timeScale().fitContent();
+
     fetchPosts()
   }, [])
 
-  // Mock News
-  const newsData = [
-    {
-      id: 1,
-      title: "AAPL announces new smartphone Tech",
-      desc: "Lorem ipsum dolor sit amet consectetur adipisicing elit. Quisquam totam beatae vitae, tenetur eaque optio. Autem placeat culpa aperiam iusto necessitatibus, quaerat cum. Consectetur id rem eos itaque, soluta expedita."
-    },
-    {
-      id: 2,
-      title: "AAPL China clash continues",
-      desc: "Lorem ipsum dolor sit amet consectetur adipisicing elit. Quisquam totam beatae vitae, tenetur eaque optio. Autem placeat culpa aperiam iusto necessitatibus, quaerat cum. Consectetur id rem eos itaque, soluta expedita."
-    },
-    {
-      id: 3,
-      title: "AAPL fined $3B",
-      desc: "Lorem ipsum dolor sit amet consectetur adipisicing elit. Quisquam totam beatae vitae, tenetur eaque optio. Autem placeat culpa aperiam iusto necessitatibus, quaerat cum. Consectetur id rem eos itaque, soluta expedita."
-    },
-    {
-      id: 4,
-      title: "AAPL partners with google",
-      desc: "Lorem ipsum dolor sit amet consectetur adipisicing elit. Quisquam totam beatae vitae, tenetur eaque optio. Autem placeat culpa aperiam iusto necessitatibus, quaerat cum. Consectetur id rem eos itaque, soluta expedita."
-    }
-  ]
-
   // Mock data - replace with actual API calls
-  const { stock_name } = use(params);
   const stockData = {
     name: stock_name.toUpperCase(),
     price: 150.25,
@@ -58,6 +51,14 @@ export default function StockQuotePage({ params }: { params: Promise<{ stock_nam
     }
   };
 
+  const addDataHandler = () => {
+    const cur = new Date();
+    const a = cur.getTime()
+    if (lineSeries) {
+      lineSeries.update({ value: 8, time: a })
+    }
+
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 p-6 text-black">
@@ -78,10 +79,16 @@ export default function StockQuotePage({ params }: { params: Promise<{ stock_nam
         {/* Chart Placeholder */}
         <div className="bg-white rounded-lg shadow-sm p-6">
           <h2 className="text-xl font-semibold mb-4">Price Chart</h2>
+          <div id="container" className="h-96 bg-gray-100 rounded-lg flex items-center justify-center"></div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow-sm p-6">
+          <h2 className="text-xl font-semibold mb-4">Price Chart</h2>
           <div className="h-96 bg-gray-100 rounded-lg flex items-center justify-center">
-            <span className="text-gray-500">Chart Component Will Go Here</span>
+            <button onClick={addDataHandler}> hehe</button>
           </div>
         </div>
+
 
         {/* Stock Statistics */}
         <div className="bg-white rounded-lg shadow-sm p-6">
