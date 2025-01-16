@@ -1,8 +1,8 @@
 'use client';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { use, useEffect, useRef, useState } from 'react';
 
 
-export default function StockQuotePage({ params }: any) {
+export default function StockQuotePage({ params }: { params: Promise<{ stock_name: string }> }) {
 
   const [isMarketOpen, setIsMarketOpen] = useState(null)
 
@@ -40,8 +40,9 @@ export default function StockQuotePage({ params }: any) {
   ]
 
   // Mock data - replace with actual API calls
+  const { stock_name } = use(params);
   const stockData = {
-    name: params.stock_name.toUpperCase(),
+    name: stock_name.toUpperCase(),
     price: 150.25,
     change: +2.5,
     changePercent: +1.67,
