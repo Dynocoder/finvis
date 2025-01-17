@@ -2,6 +2,7 @@ const express = require("express");
 const next = require("next");
 const { Socket, Server } = require("socket.io");
 const bodyParser = require("body-parser");
+const yahooFinance = require("yahoo-finance2").default;
 require("dotenv").config();
 
 const port = process.env.PORT;
@@ -29,6 +30,15 @@ app.prepare().then(() => {
     };
 
     res.json(marketStatus);
+  });
+
+  // static stock data
+  server.get("/api/stock/:stock_name", async (req, res) => {
+    const { stock_name } = req.params;
+
+    const result = await yahooFinance.quote(stock_name.toUpperCase());
+
+    res.json(result);
   });
 
   server.get("*", (req, res) => {

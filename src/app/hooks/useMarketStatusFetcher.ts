@@ -1,4 +1,3 @@
-import axios from "axios";
 import { useEffect, useState } from "react"
 
 const useMarketStatusFetcher = () => {
@@ -7,16 +6,11 @@ const useMarketStatusFetcher = () => {
   useEffect(() => {
     const fetchMarketStatus = async () => {
       try {
-        const { data } = await axios.get('/api/market-status');
+        const res = await fetch('/api/market-status');
+        const data = await res.json();
         setIsMarketOpen(data.isOpen);
-        if (data.isOpen) {
-          console.log("The market is Open!");
-        }
-        else {
-          console.log("The market is Open!");
-        }
       } catch (err) {
-        console.error(`Error fetching market status: ${err.message}`);
+        console.log(`Error in getting Market Status: ${err}`);
       }
     };
 

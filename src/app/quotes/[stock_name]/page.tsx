@@ -1,40 +1,71 @@
-'use client';
-import React, { use, useEffect, useState } from 'react';
-import { createChart } from 'lightweight-charts';
-import { useNewsDataFetcher } from '@/app/hooks/useNewsDataFetcher';
+import React, { Suspense } from 'react';
+import QuotePage from './StockQuotePage';
 
-export default function StockQuotePage({ params }: { params: Promise<{ stock_name: string }> }) {
-  const { stock_name } = use(params);
-  const { newsData } = useNewsDataFetcher(stock_name);
-  const [lineSeries, setLineSeries] = useState<any>();
+export default async function StockQuotePage({ params,
+}: {
+  params: Promise<{ stock_name: string }>
+}) {
 
-  const chartOptions: any = { layout: { textColor: 'black', background: { type: 'solid', color: 'white' } } };
-
-  const data: Array<any> = [{ value: 0, time: 1642425322 }, { value: 8, time: 1642511722 }, { value: 10, time: 1642598122 }, { value: 20, time: 1642684522 }, { value: 3, time: 1642770922 }, { value: 43, time: 1642857322 }, { value: 41, time: 1642943722 }, { value: 43, time: 1643030122 }, { value: 56, time: 1643116522 }, { value: 46, time: 1643202922 }];
+  const stock_name = (await params).stock_name;
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'http://localhost:3000';
+  // const { newsData } = useNewsDataFetcher(stock_name);
 
 
-  const [isMarketOpen, setIsMarketOpen] = useState(null)
-
-  useEffect(() => {
-    async function fetchPosts() {
-      const res = await fetch('/api/market-status')
-      const data = await res.json()
-      setIsMarketOpen(data.isOpen)
+  const fetchStaticStockData = async (stockName: string) => {
+    try {
+      const res = await fetch(`${baseUrl}/api/stock/${stockName}`);
+      const data = await res.json();
+      console.log(data);
+      return data;
+    } catch (err) {
+      console.log(`Error in getting Static Data: ${err}`);
+      return null;
     }
+  };
 
-    const element = document.getElementById('container') ?? '';
-    const chart = createChart(element, chartOptions);
-    const lineSeries: any = chart.addAreaSeries();
-    setLineSeries(lineSeries)
 
-    lineSeries.setData(data);
-    chart.timeScale().fitContent();
+  const fetchMarketStatus = async () => {
+    try {
+      const res = await fetch('/api/market-status');
+      const data = await res.json();
+      return data.isOpen;
+    } catch (err) {
+      console.log(`Error in getting Market Status: ${err}`);
+      return null;
+    }
+  };
 
-    fetchPosts()
-  }, [])
+  // isMarketOpen = await fetchMarketStatus();
+
+  const stockData = await fetchStaticStockData(stock_name);
+  console.log("displaName: ", stockData.displayName);
+
+  const newsData = [
+    {
+      id: 1,
+      title: "AAPL announces new smartphone Tech",
+      desc: "Lorem ipsum dolor sit amet consectetur adipisicing elit. Quisquam totam beatae vitae, tenetur eaque optio. Autem placeat culpa aperiam iusto necessitatibus, quaerat cum. Consectetur id rem eos itaque, soluta expedita."
+    },
+    {
+      id: 2,
+      title: "AAPL China clash continues",
+      desc: "Lorem ipsum dolor sit amet consectetur adipisicing elit. Quisquam totam beatae vitae, tenetur eaque optio. Autem placeat culpa aperiam iusto necessitatibus, quaerat cum. Consectetur id rem eos itaque, soluta expedita."
+    },
+    {
+      id: 3,
+      title: "AAPL fined $3B",
+      desc: "Lorem ipsum dolor sit amet consectetur adipisicing elit. Quisquam totam beatae vitae, tenetur eaque optio. Autem placeat culpa aperiam iusto necessitatibus, quaerat cum. Consectetur id rem eos itaque, soluta expedita."
+    },
+    {
+      id: 4,
+      title: "AAPL partners with google",
+      desc: "Lorem ipsum dolor sit amet consectetur adipisicing elit. Quisquam totam beatae vitae, tenetur eaque optio. Autem placeat culpa aperiam iusto necessitatibus, quaerat cum. Consectetur id rem eos itaque, soluta expedita."
+    }
+  ]
 
   // Mock data - replace with actual API calls
-  const stockData = {
+  const stockDataMock: any = {
+    displayName: 'Apple. ',
     name: stock_name.toUpperCase(),
     price: 150.25,
     change: +2.5,
@@ -51,107 +82,15 @@ export default function StockQuotePage({ params }: { params: Promise<{ stock_nam
     }
   };
 
-  const addDataHandler = () => {
-    const cur = new Date();
-    const a = cur.getTime()
-    if (lineSeries) {
-      lineSeries.update({ value: 8, time: a })
-    }
-
+  const props = {
+    stockData: stockData,
+    newsData: newsData,
+    isMarketOpen: true
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6 text-black">
-      <div className="max-w-4xl mx-auto space-y-6">
-
-        {/* Stock Header Section */}
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <h1 className="text-3xl font-bold text-gray-900">{stockData.name}</h1>
-          {isMarketOpen ? (<p>Market Open</p>) : (<p>Market Closed</p>)}
-          <div className="mt-2 flex items-baseline">
-            <span className="text-4xl font-semibold">${stockData.price}</span>
-            <span className={`ml-3 text-lg ${stockData.change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              {stockData.change >= 0 ? '+' : ''}{stockData.change} ({stockData.changePercent}%)
-            </span>
-          </div>
-        </div>
-
-        {/* Chart Placeholder */}
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <h2 className="text-xl font-semibold mb-4">Price Chart</h2>
-          <div id="container" className="h-96 bg-gray-100 rounded-lg flex items-center justify-center"></div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <h2 className="text-xl font-semibold mb-4">Price Chart</h2>
-          <div className="h-96 bg-gray-100 rounded-lg flex items-center justify-center">
-            <button onClick={addDataHandler}> hehe</button>
-          </div>
-        </div>
-
-
-        {/* Stock Statistics */}
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <h2 className="text-xl font-semibold mb-4">Key Statistics</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div>
-              <h3 className="text-sm text-gray-500">Market Cap</h3>
-              <p className="text-lg font-medium">{stockData.stats.marketCap}</p>
-            </div>
-            <div>
-              <h3 className="text-sm text-gray-500">P/E Ratio</h3>
-              <p className="text-lg font-medium">{stockData.stats.peRatio}</p>
-            </div>
-            <div>
-              <h3 className="text-sm text-gray-500">Volume</h3>
-              <p className="text-lg font-medium">{stockData.stats.volume}</p>
-            </div>
-            <div>
-              <h3 className="text-sm text-gray-500">Avg. Volume</h3>
-              <p className="text-lg font-medium">{stockData.stats.avgVolume}</p>
-            </div>
-            <div>
-              <h3 className="text-sm text-gray-500">Day Range</h3>
-              <p className="text-lg font-medium">{stockData.stats.dayRange}</p>
-            </div>
-            <div>
-              <h3 className="text-sm text-gray-500">52 Week Range</h3>
-              <p className="text-lg font-medium">{stockData.stats.yearRange}</p>
-            </div>
-            <div>
-              <h3 className="text-sm text-gray-500">Dividend</h3>
-              <p className="text-lg font-medium">{stockData.stats.dividend}</p>
-            </div>
-            <div>
-              <h3 className="text-sm text-gray-500">EPS</h3>
-              <p className="text-lg font-medium">{stockData.stats.eps}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* More Stocks */}
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <h2 className='text-xl font-semibold mb-4'>More Stocks</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          </div>
-        </div>
-
-
-        {/* Stock News */}
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <h2 className='text-xl font-semibold mb-4'>Related News</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {newsData.map((news) => {
-              return (
-                <a key={news.id} className='shadow-black rounded-md flex flex-col' href=''>
-                  <h3 className='text-lg font-medium'>{news.title}</h3>
-                  <p className='text-sm'>{news.desc.substring(0, 150)}...</p>
-                </a>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-    </div>
+    <Suspense>
+      <QuotePage {...props} />
+    </Suspense>
   );
 };
