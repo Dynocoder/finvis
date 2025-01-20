@@ -1,33 +1,40 @@
 import { useEffect, useRef, useState } from "react";
 import { io, Socket } from "socket.io-client";
+import { PriceData } from "../quotes/[stock_name]/StockQuotePage";
+import { UTCTimestamp } from "lightweight-charts";
 
-export interface Stock {
+export interface PriceTimeSeries {
   value: number,
-  time: number
+  time: UTCTimestamp
 }
 
-const useSocketStock = (stockName: string) => {
-  const [stock, setStock] = useState<Stock | null>(null);
+const useSocketStock = (stockName: string, stockData: any) => {
+
+  const time = new Date(stockData.regularMarketTime);
+  const stockObj: PriceData = {
+    price: stockData.regularMarketPrice,
+    time: Math.floor(time.getTime()) as UTCTimestamp,
+    change: stockData.regularMarketChange,
+    changePercent: stockData.regularMarketChangePercent
+  }
+
+  const [stock, setStock] = useState<PriceData>(stockObj);
   const [isConnected, setIsConnected] = useState(false);
-  const data: Array<any> = [{ value: 0, time: 1642425322 }, { value: 8, time: 1642511722 }, { value: 10, time: 1642598122 }, { value: 20, time: 1642684522 }, { value: 3, time: 1642770922 }, { value: 43, time: 1642857322 }, { value: 41, time: 1642943722 }, { value: 43, time: 1643030122 }, { value: 56, time: 1643116522 }, { value: 46, time: 1643202922 }];
   const [socket, setSocket] = useState<Socket | null>(null);
-  const marketOpen = useRef<boolean>(false);
 
   useEffect(() => {
-    if (!marketOpen.current) {
-      //test if the market has opened
-    }
-
     const socket = io();
 
     socket.on('connect', () => {
       console.log("Connection Established with Server.");
+      socket.emit('stock_name_data', stockName);
       setSocket(socket);
       setIsConnected(true);
     });
 
-    socket.on('stock', (message: Stock) => {
-      setStock(message);
+    socket.on("message", (message) => {
+      console.log("[Client] received: " + JSON.stringify(message));
+      setStock(message as PriceData);
     })
 
     socket.on('disconnect', () => {
@@ -38,9 +45,9 @@ const useSocketStock = (stockName: string) => {
       socket.disconnect();
       setIsConnected(false);
     }
-  }, []);
+  }, [stockName]);
 
-  return { stock, data, isConnected };
+  return { stock, isConnected };
 
 }
 export default useSocketStock;

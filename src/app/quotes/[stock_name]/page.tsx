@@ -8,21 +8,17 @@ export default async function StockQuotePage({ params,
 
   const stock_name = (await params).stock_name;
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'http://localhost:3000';
-  // const { newsData } = useNewsDataFetcher(stock_name);
-
 
   const fetchStaticStockData = async (stockName: string) => {
     try {
       const res = await fetch(`${baseUrl}/api/stock/${stockName}`);
       const data = await res.json();
-      console.log(data);
       return data;
     } catch (err) {
       console.log(`Error in getting Static Data: ${err}`);
       return null;
     }
   };
-
 
   const fetchMarketStatus = async () => {
     try {
@@ -38,7 +34,6 @@ export default async function StockQuotePage({ params,
   // isMarketOpen = await fetchMarketStatus();
 
   const stockData = await fetchStaticStockData(stock_name);
-  console.log("displaName: ", stockData.displayName);
 
   const newsData = [
     {
@@ -63,34 +58,17 @@ export default async function StockQuotePage({ params,
     }
   ]
 
-  // Mock data - replace with actual API calls
-  const stockDataMock: any = {
-    displayName: 'Apple. ',
-    name: stock_name.toUpperCase(),
-    price: 150.25,
-    change: +2.5,
-    changePercent: +1.67,
-    stats: {
-      marketCap: '2.5T',
-      peRatio: 25.4,
-      volume: '52.3M',
-      avgVolume: '48.1M',
-      dayRange: '148.75 - 151.34',
-      yearRange: '125.52 - 165.23',
-      dividend: '0.88 (0.59%)',
-      eps: 6.05,
-    }
-  };
-
   const props = {
-    stockData: stockData,
+    stockData: stockData.quote,
+    stockSeries: stockData.filtered_series,
     newsData: newsData,
     isMarketOpen: true
   }
 
+  console.log("From Server Component: ")
+  console.log(props)
+
   return (
-    <Suspense>
-      <QuotePage {...props} />
-    </Suspense>
+    <QuotePage {...props} />
   );
 };

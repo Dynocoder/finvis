@@ -1,127 +1,196 @@
 'use client'
-import React, { use, useEffect, useState } from 'react';
-import { createChart } from 'lightweight-charts';
-import { useNewsDataFetcher } from '@/app/hooks/useNewsDataFetcher';
-import useSocketStock, { Stock } from '@/app/hooks/useSocketStocks';
-import useMarketStatusFetcher from '@/app/hooks/useMarketStatusFetcher';
-import { useStaticStockData } from '@/app/hooks/useStaticStockData';
+import React, { useEffect, useRef, useState } from 'react';
+import { AreaData, createChart, IChartApi, ISeriesApi, Time, UTCTimestamp } from 'lightweight-charts';
+import useSocketStock from '@/app/hooks/useSocketStocks';
 
 interface StockParams {
   stockData: any,
+  stockSeries: AreaData[],
   newsData: Array<any>,
   isMarketOpen: boolean,
 }
 
-interface PriceData {
+export interface PriceData {
   price: number,
   change: number,
-  changePercent: number
+  changePercent: number,
+  time: UTCTimestamp,
 }
 
+
 export default function QuotePage(params: StockParams) {
-  const { isConnected, data } = useSocketStock(params.stockData.displayName);
-  const [lineSeries, setLineSeries] = useState<any>();
-  const [priceData, setPriceData] = useState<PriceData>(setInitialPriceData());
+
+  const chartContainerRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<IChartApi | null>(null);
+  const seriesRef = useRef<ISeriesApi<"Area"> | null>(null);
+
+  const { stock } = useSocketStock(params.stockData.displayName, params.stockData);
+
   const formatter = new Intl.NumberFormat("en-US", {
     notation: "compact",
     compactDisplay: "short",
     maximumFractionDigits: 2,
   });
+
   const currencyFormatter = new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
   })
-  const chartOptions: any = { layout: { textColor: 'black', background: { type: 'solid', color: 'white' } } };
 
-  function setInitialPriceData() {
-    if (isConnected && params.isMarketOpen) {
-      const data: PriceData = {
-        price: 150.26,
-        change: 4.3,
-        changePercent: 2.8
+  const chartOptions: any = {
+    timeScale: {
+      timeVisible: true,
+      secondsVisible: false,
+      timeUnit: 'hour',
+    },
+    layout: {
+      textColor: 'black',
+      background: {
+        type: 'solid', color: 'white'
       }
-      return data;
-    }
-    else {
-      const data: PriceData = {
-        price: params.stockData.regularMarketPrice,
-        change: Math.floor(params.stockData.regularMarketChange * 100) / 100,
-        changePercent: Math.floor(params.stockData.regularMarketChangePercent * 100) / 100,
-      }
-      return data;
-    }
-  }
-
-
-  useEffect(() => {
-    const element = document.getElementById('container') ?? '';
-    if (element === '') return;
-    const chart = createChart(element, chartOptions);
-    const lineSeries: any = chart.addAreaSeries();
-    setLineSeries(lineSeries)
-
-    lineSeries.setData(data);
-    chart.timeScale().fitContent();
-    document.querySelector('#tv-attr-logo')?.remove();
-  }, [])
-
-
-  // Mock data - replace with actual API calls
-  const stockDataMock = {
-    name: params.stockData.displayName,
-    price: 150.25,
-    change: +2.5,
-    changePercent: +1.67,
-    stats: {
-      marketCap: '2.5T',
-      peRatio: 25.4,
-      volume: '52.3M',
-      avgVolume: '48.1M',
-      dayRange: '148.75 - 151.34',
-      yearRange: '125.52 - 165.23',
-      dividend: '0.88 (0.59%)',
-      eps: 6.05,
     }
   };
 
-  const addDataHandler = () => {
-    const cur = new Date();
-    const a = cur.getTime()
-    if (lineSeries) {
-      lineSeries.update({ value: 8, time: a })
+  useEffect(() => {
+    if (chartContainerRef.current) {
+      const chart = createChart(chartContainerRef.current, {
+        handleScale: false,
+        handleScroll: false,
+        timeScale: {
+          timeVisible: true,
+          secondsVisible: false,
+          rightOffset: 5,        // Small right margin
+          fixLeftEdge: true,
+          lockVisibleTimeRangeOnResize: true,
+          tickMarkFormatter: (time: any) => {
+            const date = new Date(time); // Convert timestamp to Date
+            return date.toLocaleTimeString('en-US', {
+              timeZone: 'America/New_York',
+              hour: '2-digit',
+            });
+          },
+        },
+        crosshair: {
+          vertLine: {
+            labelVisible: false,
+          },
+        },
+        leftPriceScale: {
+          visible: true,
+          textColor: 'black',
+        },
+        rightPriceScale: {
+          visible: false,
+        },
+        layout: {
+          textColor: 'black',
+        }
+      });
+      const lineSeries = chart.addAreaSeries();
+
+      lineSeries.setData(params.stockSeries);
+      chart.timeScale().fitContent();
+      chartRef.current = chart;
+      seriesRef.current = lineSeries;
+      chartRef.current.subscribeCrosshairMove((param) => {
+        if (param.time) {
+          console.log(`crosshair timestamp: ${param.time}`);
+          console.log(`crosshair timestamp: ${new Date(param.time as any)}`);
+          // const date = new Date(param.time); // If timestamp is in seconds
+          // or just new Date(param.time) if timestamp is in milliseconds
+          // console.log(`from crosshair ${date}`);
+          // Your tooltip logic here
+        }
+      });
+
+      const handleResize = () => {
+        if (chartRef.current && chartContainerRef.current) {
+          chartRef.current.applyOptions({
+            width: chartContainerRef.current.clientWidth,
+          });
+
+          // Re-fit content after resize
+          chartRef.current.timeScale().fitContent();
+        }
+      };
+
+      window.addEventListener('resize', handleResize);
+
+      return () => {
+        chart.remove();
+        window.removeEventListener('resize', handleResize);
+      }
     }
-  }
 
-  const isSocketConnected = (): boolean => {
-    return isConnected && data.length > 0;
-  }
+  }, []);
 
+  useEffect(() => {
+    if (!seriesRef.current || !chartRef.current) return;
+
+    document.querySelector('#tv-attr-logo')?.remove(); // this removes the logo
+    seriesRef.current.update({ value: stock.price, time: stock.time })
+    chartRef.current.timeScale().fitContent();
+
+    // Calculate and set the visible range if needed
+    if (params.stockSeries.length > 0) {
+      const firstPoint = params.stockSeries[0];
+      const lastPoint = params.stockSeries[params.stockSeries.length - 1];
+
+      chartRef.current.timeScale().setVisibleRange({
+        from: firstPoint.time, // Convert to seconds for the API
+        to: lastPoint.time,
+      });
+    }
+
+  }, [stock])
+
+
+  // useEffect(() => {
+  //   const element = document.getElementById('container') ?? '';
+  //   if (element === '') return;
+  //   const chart = createChart(element, chartOptions);
+  //   const lineSeries: any = chart.addAreaSeries();
+  //   setLineSeries(lineSeries)
+  //
+  //   lineSeries.setData(data);
+  //   chart.timeScale().fitContent();
+  //   document.querySelector('#tv-attr-logo')?.remove();
+  // }, [])
+
+  // useEffect(() => {
+  //   if (lineSeries && stock) {
+  //     lineSeries.update({ value: stock.price, time: stock.time });
+  //   }
+  //   console.log("called lineseries");
+  // }, [stock.price]);
 
   return (
     <div className="min-h-screen bg-gray-50 p-6 text-black" >
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Stock Header Section */}
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <h1 className="text-3xl font-bold text-gray-900">{params.stockData.longName} ({params.stockData.symbol})</h1>
-          <div className="mt-2 flex items-baseline">
-            <span className="text-4xl font-semibold">${priceData.price}</span>
-            <span className={`ml-3 text-lg ${priceData.change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              {priceData.change >= 0 ? '+' : ''}{priceData.change} ({priceData.changePercent}%)
-            </span>
+        <div className='space-y-6'>
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <h1 className="text-3xl font-bold text-gray-900">{params.stockData.longName} ({params.stockData.symbol})</h1>
+            <div className="mt-2 flex items-baseline">
+              <span className="text-4xl font-semibold">${stock!.price}</span>
+              <span className={`ml-3 text-lg ${stock!.change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {stock!.change >= 0 ? '+' : ''}{stock!.change} ({stock!.changePercent}%)
+              </span>
+            </div>
+            <div className='mt-2 flex flex-row items-baseline'>
+              {params.isMarketOpen ? (
+                <></>
+              ) : (
+                <p className='text-sm font-medium text-gray-500'>At Close</p>
+              )}
+            </div>
           </div>
-          <div className='mt-2 flex flex-row items-baseline'>
-            {params.isMarketOpen ? (
-              <p className='text-sm font-medium text-gray-500'>At Close</p>
-            ) : (
-              <p className='text-sm font-medium text-gray-500'></p>
-            )}
-          </div>
-        </div>
 
-        {/* Chart Placeholder */}
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <h2 className="text-xl font-semibold mb-4">Price Chart</h2>
-          <div id="container" className="h-96 bg-gray-100 rounded-lg flex items-center justify-center"></div>
+          {/* Chart Placeholder */}
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <h2 className="text-xl font-semibold mb-4">Price Chart</h2>
+            <div ref={chartContainerRef} className="h-96 bg-gray-100 rounded-lg flex items-center justify-center"></div>
+          </div>
         </div>
 
         {/* Stock Statistics */}
