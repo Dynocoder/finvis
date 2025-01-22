@@ -13,7 +13,7 @@ const useSocketStock = (stockName: string, stockData: any) => {
   const time = new Date(stockData.regularMarketTime);
   const stockObj: PriceData = {
     price: stockData.regularMarketPrice,
-    time: Math.floor(time.getTime()) as UTCTimestamp,
+    time: Math.floor(time.getTime() / 1000) as UTCTimestamp,
     change: stockData.regularMarketChange,
     changePercent: stockData.regularMarketChangePercent
   }

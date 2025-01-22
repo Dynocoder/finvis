@@ -1,6 +1,6 @@
 'use client'
 import React, { useEffect, useRef, useState } from 'react';
-import { AreaData, createChart, IChartApi, ISeriesApi, Time, UTCTimestamp } from 'lightweight-charts';
+import { AreaData, createChart, IChartApi, ISeriesApi, TickMarkType, Time, UTCTimestamp } from 'lightweight-charts';
 import useSocketStock from '@/app/hooks/useSocketStocks';
 
 interface StockParams {
@@ -57,22 +57,19 @@ export default function QuotePage(params: StockParams) {
         handleScale: false,
         handleScroll: false,
         timeScale: {
+          visible: true,
           timeVisible: true,
           secondsVisible: false,
-          rightOffset: 5,        // Small right margin
           fixLeftEdge: true,
-          lockVisibleTimeRangeOnResize: true,
-          tickMarkFormatter: (time: any) => {
-            const date = new Date(time); // Convert timestamp to Date
-            return date.toLocaleTimeString('en-US', {
-              timeZone: 'America/New_York',
-              hour: '2-digit',
-            });
+          fixRightEdge: true,
+          // lockVisibleTimeRangeOnResize: true,
+          tickMarkFormatter: (time: Time, tickMarkType: TickMarkType, locale: string) => {
+            return new Date((time as number) * 1000).toLocaleString('en-US', { hour: 'numeric', hour12: true });
           },
         },
         crosshair: {
           vertLine: {
-            labelVisible: false,
+            labelVisible: true,
           },
         },
         leftPriceScale: {
@@ -86,22 +83,15 @@ export default function QuotePage(params: StockParams) {
           textColor: 'black',
         }
       });
+
+
       const lineSeries = chart.addAreaSeries();
+
 
       lineSeries.setData(params.stockSeries);
       chart.timeScale().fitContent();
       chartRef.current = chart;
       seriesRef.current = lineSeries;
-      chartRef.current.subscribeCrosshairMove((param) => {
-        if (param.time) {
-          console.log(`crosshair timestamp: ${param.time}`);
-          console.log(`crosshair timestamp: ${new Date(param.time as any)}`);
-          // const date = new Date(param.time); // If timestamp is in seconds
-          // or just new Date(param.time) if timestamp is in milliseconds
-          // console.log(`from crosshair ${date}`);
-          // Your tooltip logic here
-        }
-      });
 
       const handleResize = () => {
         if (chartRef.current && chartContainerRef.current) {
@@ -131,66 +121,42 @@ export default function QuotePage(params: StockParams) {
     seriesRef.current.update({ value: stock.price, time: stock.time })
     chartRef.current.timeScale().fitContent();
 
-    // Calculate and set the visible range if needed
-    if (params.stockSeries.length > 0) {
-      const firstPoint = params.stockSeries[0];
-      const lastPoint = params.stockSeries[params.stockSeries.length - 1];
 
-      chartRef.current.timeScale().setVisibleRange({
-        from: firstPoint.time, // Convert to seconds for the API
-        to: lastPoint.time,
-      });
-    }
+    const start = new Date(params.stockData.regularMarketTime).setHours(9, 30, 0, 0) / 1000 as Time;
+    const stop = new Date(params.stockData.regularMarketTime).setHours(16, 0, 0, 0) / 1000 as Time;
+
+    chartRef.current.timeScale().setVisibleLogicalRange({
+      from: 0,
+      to: params.stockSeries.length
+    })
 
   }, [stock])
-
-
-  // useEffect(() => {
-  //   const element = document.getElementById('container') ?? '';
-  //   if (element === '') return;
-  //   const chart = createChart(element, chartOptions);
-  //   const lineSeries: any = chart.addAreaSeries();
-  //   setLineSeries(lineSeries)
-  //
-  //   lineSeries.setData(data);
-  //   chart.timeScale().fitContent();
-  //   document.querySelector('#tv-attr-logo')?.remove();
-  // }, [])
-
-  // useEffect(() => {
-  //   if (lineSeries && stock) {
-  //     lineSeries.update({ value: stock.price, time: stock.time });
-  //   }
-  //   console.log("called lineseries");
-  // }, [stock.price]);
 
   return (
     <div className="min-h-screen bg-gray-50 p-6 text-black" >
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Stock Header Section */}
-        <div className='space-y-6'>
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <h1 className="text-3xl font-bold text-gray-900">{params.stockData.longName} ({params.stockData.symbol})</h1>
-            <div className="mt-2 flex items-baseline">
-              <span className="text-4xl font-semibold">${stock!.price}</span>
-              <span className={`ml-3 text-lg ${stock!.change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {stock!.change >= 0 ? '+' : ''}{stock!.change} ({stock!.changePercent}%)
-              </span>
-            </div>
-            <div className='mt-2 flex flex-row items-baseline'>
-              {params.isMarketOpen ? (
-                <></>
-              ) : (
-                <p className='text-sm font-medium text-gray-500'>At Close</p>
-              )}
-            </div>
+        <div className="bg-white rounded-lg shadow-sm p-6">
+          <h1 className="text-3xl font-bold text-gray-900">{params.stockData.longName} ({params.stockData.symbol})</h1>
+          <div className="mt-2 flex items-baseline">
+            <span className="text-4xl font-semibold">${stock!.price}</span>
+            <span className={`ml - 3 text - lg ${stock!.change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {stock!.change >= 0 ? '+' : ''}{stock!.change} ({stock!.changePercent}%)
+            </span>
           </div>
+          <div className='mt-2 flex flex-row items-baseline'>
+            {params.isMarketOpen ? (
+              <></>
+            ) : (
+              <p className='text-sm font-medium text-gray-500'>At Close</p>
+            )}
+          </div>
+        </div>
 
-          {/* Chart Placeholder */}
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <h2 className="text-xl font-semibold mb-4">Price Chart</h2>
-            <div ref={chartContainerRef} className="h-96 bg-gray-100 rounded-lg flex items-center justify-center"></div>
-          </div>
+        {/* Chart Placeholder */}
+        <div className="bg-white rounded-lg shadow-sm p-6">
+          <h2 className="text-xl font-semibold mb-4">Price Chart</h2>
+          <div ref={chartContainerRef} className="h-96 bg-gray-100 rounded-lg flex items-center justify-center"></div>
         </div>
 
         {/* Stock Statistics */}

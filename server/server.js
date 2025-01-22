@@ -3,62 +3,43 @@ const next = require("next");
 const { Socket, Server } = require("socket.io");
 const bodyParser = require("body-parser");
 const yahooFinance = require("yahoo-finance2").default;
+const { fetchLatestTradingSession, addSubscriberSet } = require("./utils");
+const { Kafka } = require("kafkajs");
 require("dotenv").config();
 
 const port = process.env.PORT;
 const dev = process.env.NODE_ENV !== "production";
 const app = next({ dev });
 const handle = app.getRequestHandler();
+const subs = [];
 
-async function fetchLatestTradingSession(symbol, marketTime) {
-  // Get current date and time
-  const now = new Date();
-
-  // Create start of day (9:30 AM ET)
-  const startOfSession = new Date(marketTime);
-  startOfSession.setHours(9, 30, 0, 0);
-
-  // Create end of day (4:00 PM ET) or current time if market is still open
-  const endOfSession = new Date(marketTime);
-  endOfSession.setHours(16, 0, 0, 0);
-
-  // If current time is before 4 PM, use current time as end
-  const endTime =
-    now < endOfSession && now.getDate() === marketTime.getDate()
-      ? now
-      : endOfSession;
-
+async function initKafka() {
+  const kafka = new Kafka({
+    clientId: "nextjs-app",
+    brokers: ["0.0.0.0:9092"],
+  });
+  const consumer = kafka.consumer({ groupId: "nextjs-group" });
   try {
-    const result = await yahooFinance.chart(symbol, {
-      period1: startOfSession, // Start time
-      // period2: endTime, // End time
-      interval: "1m", // 1-minute intervals
-      includePrePost: false, // Exclude pre/post market data
+    await consumer.connect();
+
+    await consumer.subscribe({ topic: "my-topic" });
+
+    consumer.run({
+      eachMessage: async ({ topic, partition, message }) => {
+        console.log(message.value);
+        messageRelay(message);
+      },
     });
-
-    // Transform the data for lightweight-charts
-    let done = false;
-    const chartData = result.quotes.map((quote) => {
-      if (!done) {
-        console.log(
-          `before: ${quote.date}, trans: ${new Date(quote.date).getTime()}`,
-        );
-        done = true;
-      }
-
-      const date = new Date(quote.date);
-
-      return {
-        time: date.getTime(),
-        value: quote.close,
-      };
-    });
-
-    return chartData;
-  } catch (error) {
-    console.error("Error fetching data:", error);
-    throw error;
+  } catch (err) {
+    console.log(`Error connecting to Kafka: ${err}`);
+    consumer.stop();
   }
+}
+
+function messageRelay(message) {
+  subs.forEach((sub) => {
+    console.log(sub);
+  });
 }
 
 app.prepare().then(() => {
@@ -121,10 +102,16 @@ app.prepare().then(() => {
 
     socket.on("stock_name_data", (message) => {
       console.log(`[Server]: message Received: ${message}`);
+      addSubscriberSet(subs, message, socket.id);
+      console.log(subs);
     });
 
     socket.on("disconnect", (reason) => {
+      //TODO: remove the stocks from subs that disconnect
       console.log(`Client disconnected due to ${reason}`);
     });
   });
+
+  // kafka
+  initKafka();
 });
