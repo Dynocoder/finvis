@@ -64,6 +64,41 @@ app.prepare().then(() => {
     res.json(marketStatus);
   });
 
+  server.get("/api/search/:query", async (req, res) => {
+    const { query } = req.params;
+    yahooFinance.suppressNotices(["yahooSurvey"]);
+
+    const queryOptions = {
+      quotesCount: 10,
+      newsCount: 0,
+      enableCb: false,
+      enableNavLinks: false,
+      enableEnhancedTrivialQuery: true,
+    };
+    const results = await yahooFinance.search(
+      query.toLowerCase(),
+      queryOptions,
+    );
+    if (results.count > 0) {
+      const equity_quotes = results.quotes.filter((quote) => {
+        return quote.quoteType.toLowerCase() === "equity"; // only equity supported
+      });
+
+      const filtered_quotes = equity_quotes.slice(
+        0,
+        equity_quotes.length < 5 ? equity_quotes.length : 5,
+      );
+
+      const quotes = filtered_quotes.map((quote) => {
+        return {
+          symbol: quote.symbol,
+          longName: quote.longname,
+        };
+      });
+      res.json(quotes);
+    }
+  });
+
   // static stock data
   server.get("/api/stock/:stock_name", async (req, res) => {
     const { stock_name } = req.params;
@@ -108,7 +143,7 @@ app.prepare().then(() => {
 
     socket.on("disconnect", (reason) => {
       //TODO: remove the stocks from subs that disconnect
-      console.log(`Client disconnected due to ${reason}`);
+      console.log(`Client ${socket.id} disconnected due to ${reason}`);
     });
   });
 

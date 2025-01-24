@@ -132,6 +132,23 @@ export default function QuotePage(params: StockParams) {
 
   }, [stock])
 
+  const prettyPrint = (val: any, formatter?: any) => {
+    if (val) {
+      try {
+        if (formatter) {
+          const formatted = formatter(val);
+          return formatted;
+        }
+        return val;
+      }
+      catch (err) {
+        console.log(`Error ${err}`)
+      }
+    }
+    return "--";
+  }
+
+
   return (
     <div className="min-h-screen bg-gray-50 p-6 text-black" >
       <div className="max-w-4xl mx-auto space-y-6">
@@ -165,40 +182,40 @@ export default function QuotePage(params: StockParams) {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <div>
               <h3 className="text-sm text-gray-500">Previous Close</h3>
-              <p className="text-lg font-medium">{currencyFormatter.format(params.stockData.regularMarketPreviousClose)}</p>
+              <p className="text-lg font-medium">{prettyPrint(params.stockData.regularMarketPreviousClose, currencyFormatter.format)}</p>
             </div>
             <div>
               <h3 className="text-sm text-gray-500">Market Cap</h3>
-              <p className="text-lg font-medium">{formatter.format(params.stockData.marketCap)}</p>
+              <p className="text-lg font-medium">{prettyPrint(params.stockData.marketCap, formatter.format)}</p>
             </div>
             <div>
               <h3 className="text-sm text-gray-500">P/E Ratio (TTM)</h3>
-              <p className="text-lg font-medium">{Math.floor(params.stockData.trailingPE * 100) / 100}</p>
+              <p className="text-lg font-medium">{prettyPrint(params.stockData.trailingPE, (a: any) => { return Math.floor(a * 100) / 100 })}</p>
             </div>
             <div>
               <h3 className="text-sm text-gray-500">Volume</h3>
               {/* TODO: update to realtime volume. */}
-              <p className="text-lg font-medium">{new Intl.NumberFormat().format(params.stockData.regularMarketVolume)}</p>
+              <p className="text-lg font-medium">{prettyPrint(params.stockData.regularMarketVolume, new Intl.NumberFormat().format)}</p>
             </div>
             <div>
               <h3 className="text-sm text-gray-500">Avg. Volume</h3>
-              <p className="text-lg font-medium">{new Intl.NumberFormat().format(params.stockData.regularMarketVolume)}</p>
+              <p className="text-lg font-medium">{prettyPrint(params.stockData.regularMarketVolume, new Intl.NumberFormat().format)}</p>
             </div>
             <div>
               <h3 className="text-sm text-gray-500">Day Range</h3>
-              <p className="text-lg font-medium">{currencyFormatter.format(params.stockData.regularMarketDayRange.low)} - {currencyFormatter.format(params.stockData.regularMarketDayRange.high)}</p>
+              <p className="text-lg font-medium">{prettyPrint(params.stockData.regularMarketDayRange.low, currencyFormatter.format)} - {prettyPrint(params.stockData.regularMarketDayRange.high, currencyFormatter.format)}</p>
             </div>
             <div>
               <h3 className="text-sm text-gray-500">52 Week Range</h3>
-              <p className="text-lg font-medium">{params.stockData.fiftyTwoWeekRange.low} - {params.stockData.fiftyTwoWeekRange.high}</p>
+              <p className="text-lg font-medium">{prettyPrint(params.stockData.fiftyTwoWeekRange.low)} - {prettyPrint(params.stockData.fiftyTwoWeekRange.low)}</p>
             </div>
             <div>
               <h3 className="text-sm text-gray-500">Forward Dividend & Yield</h3>
-              <p className="text-lg font-medium">{params.stockData.dividendYield}%</p>
+              <p className="text-lg font-medium">{prettyPrint(params.stockData.dividendYield, (a: any) => { return a + '%' })}</p>
             </div>
             <div>
               <h3 className="text-sm text-gray-500">EPS (TTM)</h3>
-              <p className="text-lg font-medium">{params.stockData.epsTrailingTwelveMonths}</p>
+              <p className="text-lg font-medium">{prettyPrint(params.stockData.epsTrailingTwelveMonths)}</p>
             </div>
           </div>
         </div>
