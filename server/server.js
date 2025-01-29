@@ -4,7 +4,7 @@ const { Socket, Server } = require("socket.io");
 const bodyParser = require("body-parser");
 const yahooFinance = require("yahoo-finance2").default;
 const { fetchLatestTradingSession, addSubscriberSet } = require("./utils");
-const { Kafka } = require("kafkajs");
+const { Kafka, logLevel } = require("kafkajs");
 require("dotenv").config();
 
 const port = process.env.PORT;
@@ -16,7 +16,15 @@ const subs = [];
 async function initKafka() {
   const kafka = new Kafka({
     clientId: "nextjs-app",
-    brokers: ["0.0.0.0:9092"],
+    brokers: ["localhost:9093"],
+    retry: {
+      initialRetryTime: 1000,
+      retries: 8,
+      restartOnFailure: (e) => {
+        console.log(`Kafka Connection Failed ${e.message}`);
+        return;
+      },
+    },
   });
   const consumer = kafka.consumer({ groupId: "nextjs-group" });
   try {
@@ -24,9 +32,16 @@ async function initKafka() {
 
     await consumer.subscribe({ topic: "my-topic" });
 
+    // TODO: get the status to the frontend to share kafka service status
+    // making sure connected
+    const { CONNECT } = consumer.events;
+    consumer.on(CONNECT, (e) => {
+      console.log(`Connected to Kafka`);
+    });
+
     consumer.run({
       eachMessage: async ({ topic, partition, message }) => {
-        console.log(message.value);
+        console.log(message.value.toString("utf8"));
         messageRelay(message);
       },
     });
@@ -62,6 +77,13 @@ app.prepare().then(() => {
     };
 
     res.json(marketStatus);
+  });
+
+  server.get("/api/trending", async (req, res) => {
+    const queryOptions = { count: 7, lang: "en-US" };
+    const results = await yahooFinance.trendingSymbols("US", queryOptions);
+    console.log("TRENDING SHIT****************");
+    console.log(results);
   });
 
   server.get("/api/search/:query", async (req, res) => {

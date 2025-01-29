@@ -32,6 +32,12 @@ export default function QuotePage(params: StockParams) {
     maximumFractionDigits: 2,
   });
 
+  const fractionFormatter = new Intl.NumberFormat("en-US", {
+    notation: "standard",
+    compactDisplay: "short",
+    maximumFractionDigits: 2,
+  })
+
   const currencyFormatter = new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
@@ -150,15 +156,15 @@ export default function QuotePage(params: StockParams) {
 
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6 text-black" >
+    <div className="min-h-svh bg-gray-50 p-6 text-black" >
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Stock Header Section */}
         <div className="bg-white rounded-lg shadow-sm p-6">
           <h1 className="text-3xl font-bold text-gray-900">{params.stockData.longName} ({params.stockData.symbol})</h1>
           <div className="mt-2 flex items-baseline">
             <span className="text-4xl font-semibold">${stock!.price}</span>
-            <span className={`ml - 3 text - lg ${stock!.change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              {stock!.change >= 0 ? '+' : ''}{stock!.change} ({stock!.changePercent}%)
+            <span className={`ml-3 text - lg ${stock!.change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {stock!.change >= 0 ? '+' : ''}{prettyPrint(stock!.change, fractionFormatter.format)} ({prettyPrint(stock!.changePercent, (val: any) => fractionFormatter.format(val) + "%")})
             </span>
           </div>
           <div className='mt-2 flex flex-row items-baseline'>
@@ -207,7 +213,7 @@ export default function QuotePage(params: StockParams) {
             </div>
             <div>
               <h3 className="text-sm text-gray-500">52 Week Range</h3>
-              <p className="text-lg font-medium">{prettyPrint(params.stockData.fiftyTwoWeekRange.low)} - {prettyPrint(params.stockData.fiftyTwoWeekRange.low)}</p>
+              <p className="text-lg font-medium">{prettyPrint(params.stockData.fiftyTwoWeekRange.low)} - {prettyPrint(params.stockData.fiftyTwoWeekRange.high)}</p>
             </div>
             <div>
               <h3 className="text-sm text-gray-500">Forward Dividend & Yield</h3>

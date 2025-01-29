@@ -1,5 +1,6 @@
+"use client"
 import type React from "react"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Search } from "lucide-react"
 import { redirect } from "next/navigation";
 
@@ -8,16 +9,33 @@ interface SearchResult {
   longName: string
 }
 
-export function SearchBar({ props }: any) {
+export function SearchBar({ className }: any) {
   const [query, setQuery] = useState("")
   const [results, setResults] = useState<SearchResult[]>([]);
   const [showResults, setShowResults] = useState(false);
+  const dropDownRef = useRef<HTMLDivElement>(null)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     console.log("handle?")
   }
 
+
+  useEffect(() => {
+    const handleDropDownEvent = (event: MouseEvent) => {
+      if (dropDownRef.current && !dropDownRef.current.contains(event?.target as Node)) {
+        setShowResults(false);
+      }
+    }
+
+    if (showResults) {
+      document.addEventListener('mousedown', handleDropDownEvent);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleDropDownEvent);
+    };
+  }, [showResults]);
 
 
   useEffect(() => {
@@ -43,13 +61,13 @@ export function SearchBar({ props }: any) {
   }, [query])
 
   const handleResultClick = (quote: SearchResult) => {
-
+    setShowResults(false);
+    // BUG: error check for invalid stock redirects
     redirect(`/quotes/${quote.symbol}`)
   }
 
-
   return (
-    <div className="relative w-full">
+    <div className={`relative ${className}`}>
       <form onSubmit={handleSubmit} className="relative">
         <input
           type="text"
@@ -63,7 +81,7 @@ export function SearchBar({ props }: any) {
         </button>
       </form>
       {showResults && results.length > 0 && (
-        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-64 overflow-y-auto">
+        <div ref={dropDownRef} className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-64 overflow-y-auto">
           {results.map((quote) => (
             <div
               key={quote.symbol}
@@ -79,7 +97,6 @@ export function SearchBar({ props }: any) {
         </div>
       )}
     </div>
-
   )
 }
 

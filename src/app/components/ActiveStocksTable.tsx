@@ -7,10 +7,40 @@ const mockActiveStocks = [
   { symbol: "GOOGL", name: "Alphabet Inc.", price: 2750.8, change: -15.2, changePercent: -0.55 },
   { symbol: "MSFT", name: "Microsoft Corporation", price: 305.75, change: 3.25, changePercent: 1.07 },
   { symbol: "AMZN", name: "Amazon.com Inc.", price: 3380.5, change: -22.75, changePercent: -0.67 },
-  { symbol: "FB", name: "Meta Platforms Inc.", price: 325.45, change: 5.8, changePercent: 1.81 },
+  { symbol: "Meta", name: "Meta Platforms Inc.", price: 325.45, change: 5.8, changePercent: 1.81 },
 ]
 
 export function ActiveStocksTable() {
+
+
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'http://localhost:3000';
+
+  // const fetchStaticStockData = async (stockName: string) => {
+  //   try {
+  //     const res = await fetch(`${baseUrl}/api/stock/${stockName}`);
+  //     const data = await res.json();
+  //     return data;
+  //   } catch (err) {
+  //     console.log(`Error in getting Static Data: ${err}`);
+  //     return null;
+  //   }
+  // };
+  const fetchTrendingSymbols = async () => {
+    try {
+      return fetch(`${baseUrl}/api/trending`).then((res) => res.json()).then((data) => data);
+    } catch (err) {
+      console.log(`Error in getting Static Data: ${err}`);
+      return null;
+    }
+  }
+
+  const activeStocks = fetchTrendingSymbols().then((data) => console.log(`hehe ${JSON.stringify(data)}`));
+
+  // console.log("active stonks");
+  // console.log(activeStocks)
+
+
+
   return (
     <div className="bg-white rounded-lg shadow-sm p-6">
       <h2 className="text-xl font-semibold mb-4">Most Active Stocks</h2>
