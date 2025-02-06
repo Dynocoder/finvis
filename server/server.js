@@ -82,7 +82,6 @@ app.prepare().then(() => {
   server.get("/api/trending", async (req, res) => {
     const queryOptions = { count: 7, lang: "en-US" };
     const results = await yahooFinance.trendingSymbols("US", queryOptions);
-    console.log("TRENDING SHIT****************");
     console.log(results);
   });
 
