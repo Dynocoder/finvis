@@ -3,62 +3,58 @@ const next = require("next");
 const { Socket, Server } = require("socket.io");
 const bodyParser = require("body-parser");
 const yahooFinance = require("yahoo-finance2").default;
+const { fetchLatestTradingSession, addSubscriberSet } = require("./utils");
+const { Kafka, logLevel } = require("kafkajs");
 require("dotenv").config();
 
 const port = process.env.PORT;
 const dev = process.env.NODE_ENV !== "production";
 const app = next({ dev });
 const handle = app.getRequestHandler();
+const subs = [];
 
-async function fetchLatestTradingSession(symbol, marketTime) {
-  // Get current date and time
-  const now = new Date();
-
-  // Create start of day (9:30 AM ET)
-  const startOfSession = new Date(marketTime);
-  startOfSession.setHours(9, 30, 0, 0);
-
-  // Create end of day (4:00 PM ET) or current time if market is still open
-  const endOfSession = new Date(marketTime);
-  endOfSession.setHours(16, 0, 0, 0);
-
-  // If current time is before 4 PM, use current time as end
-  const endTime =
-    now < endOfSession && now.getDate() === marketTime.getDate()
-      ? now
-      : endOfSession;
-
+async function initKafka() {
+  const kafka = new Kafka({
+    clientId: "nextjs-app",
+    brokers: ["localhost:9093"],
+    retry: {
+      initialRetryTime: 1000,
+      retries: 8,
+      restartOnFailure: (e) => {
+        console.log(`Kafka Connection Failed ${e.message}`);
+        return;
+      },
+    },
+  });
+  const consumer = kafka.consumer({ groupId: "nextjs-group" });
   try {
-    const result = await yahooFinance.chart(symbol, {
-      period1: startOfSession, // Start time
-      // period2: endTime, // End time
-      interval: "1m", // 1-minute intervals
-      includePrePost: false, // Exclude pre/post market data
+    await consumer.connect();
+
+    await consumer.subscribe({ topic: "my-topic" });
+
+    // TODO: get the status to the frontend to share kafka service status
+    // making sure connected
+    const { CONNECT } = consumer.events;
+    consumer.on(CONNECT, (e) => {
+      console.log(`Connected to Kafka`);
     });
 
-    // Transform the data for lightweight-charts
-    let done = false;
-    const chartData = result.quotes.map((quote) => {
-      if (!done) {
-        console.log(
-          `before: ${quote.date}, trans: ${new Date(quote.date).getTime()}`,
-        );
-        done = true;
-      }
-
-      const date = new Date(quote.date);
-
-      return {
-        time: date.getTime(),
-        value: quote.close,
-      };
+    consumer.run({
+      eachMessage: async ({ topic, partition, message }) => {
+        console.log(message.value.toString("utf8"));
+        messageRelay(message);
+      },
     });
-
-    return chartData;
-  } catch (error) {
-    console.error("Error fetching data:", error);
-    throw error;
+  } catch (err) {
+    console.log(`Error connecting to Kafka: ${err}`);
+    consumer.stop();
   }
+}
+
+function messageRelay(message) {
+  subs.forEach((sub) => {
+    console.log(sub);
+  });
 }
 
 app.prepare().then(() => {
@@ -81,6 +77,47 @@ app.prepare().then(() => {
     };
 
     res.json(marketStatus);
+  });
+
+  server.get("/api/trending", async (req, res) => {
+    const queryOptions = { count: 7, lang: "en-US" };
+    const results = await yahooFinance.trendingSymbols("US", queryOptions);
+    console.log(results);
+  });
+
+  server.get("/api/search/:query", async (req, res) => {
+    const { query } = req.params;
+    yahooFinance.suppressNotices(["yahooSurvey"]);
+
+    const queryOptions = {
+      quotesCount: 10,
+      newsCount: 0,
+      enableCb: false,
+      enableNavLinks: false,
+      enableEnhancedTrivialQuery: true,
+    };
+    const results = await yahooFinance.search(
+      query.toLowerCase(),
+      queryOptions,
+    );
+    if (results.count > 0) {
+      const equity_quotes = results.quotes.filter((quote) => {
+        return quote.quoteType.toLowerCase() === "equity"; // only equity supported
+      });
+
+      const filtered_quotes = equity_quotes.slice(
+        0,
+        equity_quotes.length < 5 ? equity_quotes.length : 5,
+      );
+
+      const quotes = filtered_quotes.map((quote) => {
+        return {
+          symbol: quote.symbol,
+          longName: quote.longname,
+        };
+      });
+      res.json(quotes);
+    }
   });
 
   // static stock data
@@ -121,10 +158,16 @@ app.prepare().then(() => {
 
     socket.on("stock_name_data", (message) => {
       console.log(`[Server]: message Received: ${message}`);
+      addSubscriberSet(subs, message, socket.id);
+      console.log(subs);
     });
 
     socket.on("disconnect", (reason) => {
-      console.log(`Client disconnected due to ${reason}`);
+      //TODO: remove the stocks from subs that disconnect
+      console.log(`Client ${socket.id} disconnected due to ${reason}`);
     });
   });
+
+  // kafka
+  initKafka();
 });
